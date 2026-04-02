@@ -23,7 +23,11 @@ export async function proxy(request: NextRequest) {
     }
   )
 
-  const { data: { user } } = await supabase.auth.getUser()
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+
+  // Log auth state for debugging (remove once working)
+  console.log('[proxy] path:', request.nextUrl.pathname, '| user:', user?.email ?? 'null', '| error:', authError?.message ?? 'none', '| cookies:', request.cookies.getAll().map(c => c.name))
+
   const isAuthPage = request.nextUrl.pathname.startsWith('/login') ||
     request.nextUrl.pathname.startsWith('/auth/callback')
 
@@ -46,5 +50,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|api/cron).*)'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|api/cron|api/debug).*)'],
 }
