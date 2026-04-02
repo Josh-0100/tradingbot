@@ -1,17 +1,10 @@
 import { createClient } from '@/lib/supabase/server'
+export { formatGbp } from '@/lib/utils/format'
 
 const CACHE_DURATION_MS = 30 * 60 * 1000 // 30 minutes
 
 export function convertUsdToGbp(usd: number, rate: number): number {
   return Math.round(usd * rate * 100) / 100
-}
-
-export function formatGbp(amount: number): string {
-  return new Intl.NumberFormat('en-GB', {
-    style: 'currency',
-    currency: 'GBP',
-    minimumFractionDigits: 2,
-  }).format(amount)
 }
 
 export async function getGbpUsdRate(): Promise<number> {

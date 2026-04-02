@@ -1,11 +1,12 @@
 import Anthropic from '@anthropic-ai/sdk'
+import type { IndicatorSnapshot } from '@/lib/indicators/compute'
 
 interface SignalInput {
   ticker: string
   companyName: string
   currentPriceUsd: number
   date: string
-  indicators: Record<string, number | null>
+  indicators: IndicatorSnapshot | Record<string, number | null>
   news: { headline: string; sentiment_score: number | null; source: string }[]
   fundamentals: { peRatio: number | null; eps: number | null; revenueGrowth: number | null }
   strategies: { name: string; description: string; rules: unknown }[]
