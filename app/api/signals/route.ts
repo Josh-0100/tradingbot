@@ -5,6 +5,27 @@ import { getGbpUsdRate, convertUsdToGbp } from '@/lib/data/exchange-rate'
 import { getLiveQuote, getFundamentals } from '@/lib/data/yahoo'
 import { computeIndicators } from '@/lib/indicators/compute'
 
+export async function GET(req: NextRequest) {
+  const ticker = req.nextUrl.searchParams.get('ticker')
+  if (!ticker) return NextResponse.json({ error: 'ticker required' }, { status: 400 })
+
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const todayUtc = new Date().toISOString().split('T')[0] + 'T00:00:00Z'
+  const { data: signal } = await supabase
+    .from('signals')
+    .select('*')
+    .eq('ticker', ticker)
+    .gte('created_at', todayUtc)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  return NextResponse.json({ signal: signal ?? null })
+}
+
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
