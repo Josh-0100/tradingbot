@@ -16,14 +16,15 @@ interface SignalData {
 }
 
 function DirectionBadge({ direction }: { direction: string }) {
-  const map: Record<string, string> = {
-    BUY: 'bg-green-500 text-white',
-    HOLD: 'bg-yellow-500 text-black',
-    SELL: 'bg-red-500 text-white',
-    WATCH_SELL: 'bg-red-400 text-white',
+  const map: Record<string, { bg: string; text: string }> = {
+    BUY:        { bg: 'bg-green-500/20 border border-green-500/40', text: 'text-green-400' },
+    HOLD:       { bg: 'bg-yellow-500/20 border border-yellow-500/40', text: 'text-yellow-400' },
+    SELL:       { bg: 'bg-red-500/20 border border-red-500/40', text: 'text-red-400' },
+    WATCH_SELL: { bg: 'bg-red-400/20 border border-red-400/40', text: 'text-red-300' },
   }
+  const style = map[direction] ?? { bg: 'bg-gray-700', text: 'text-gray-300' }
   return (
-    <span className={`text-xs font-semibold px-2 py-0.5 rounded ${map[direction] ?? 'bg-gray-600 text-white'}`}>
+    <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${style.bg} ${style.text}`}>
       {direction.replace('_', ' ')}
     </span>
   )
@@ -64,61 +65,84 @@ export default function DashboardPage() {
     setGenerating(false)
   }
 
+  const watchlistProps = {
+    items: quotes.map(q => ({ ticker: q.ticker, priceGbp: q.priceGbp, changePercent: q.changePercent })),
+    selected,
+    onSelect: setSelected,
+  }
+
   return (
-    <div className="flex h-[calc(100vh-52px)]">
-      <Watchlist
-        items={quotes.map(q => ({ ticker: q.ticker, priceGbp: q.priceGbp, changePercent: q.changePercent }))}
-        selected={selected}
-        onSelect={setSelected}
-      />
-      <div className="flex-1 flex flex-col overflow-auto">
-        <KpiCards portfolioValueGbp={10000} signalCount={0} newsAlertCount={0} />
-        <PriceChart data={chartData} ticker={selected} />
-
-        <div className="mx-4 mb-4 p-4 bg-gray-900 rounded-lg">
-          <div className="flex items-center justify-between mb-3">
-            <span className="font-semibold text-sm text-white">{selected} — Claude Analysis</span>
-            {signal && <DirectionBadge direction={signal.direction} />}
-          </div>
-
-          {signal ? (
-            <>
-              <div className="grid grid-cols-3 gap-3 mb-2 text-xs">
-                <div>
-                  <span className="text-gray-500 block mb-0.5">Entry</span>
-                  <strong className="text-white">{signal.entry_price_gbp ? `£${signal.entry_price_gbp.toFixed(2)}` : '—'}</strong>
-                </div>
-                <div>
-                  <span className="text-gray-500 block mb-0.5">Stop</span>
-                  <strong className="text-red-400">{signal.stop_loss_gbp ? `£${signal.stop_loss_gbp.toFixed(2)}` : '—'}</strong>
-                </div>
-                <div>
-                  <span className="text-gray-500 block mb-0.5">Target</span>
-                  <strong className="text-green-400">{signal.target_gbp ? `£${signal.target_gbp.toFixed(2)}` : '—'}</strong>
-                </div>
-              </div>
-              <p className="text-xs text-gray-500 mb-2">
-                {signal.strategy_triggered && `${signal.strategy_triggered} · `}
-                Conf. {signal.confidence_pct ?? '—'}%
-                {signal.risk_reward_ratio && ` · R:R ${signal.risk_reward_ratio.toFixed(1)}`}
-              </p>
-              {signal.reasoning && (
-                <p className="text-xs text-gray-400 leading-relaxed line-clamp-2 mb-3">{signal.reasoning}</p>
-              )}
-            </>
-          ) : (
-            <p className="text-gray-600 text-xs mb-3">No signal for today. Click &quot;Generate Signal&quot; to analyse.</p>
-          )}
-
-          <button
-            onClick={generateSignal}
-            disabled={generating}
-            className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs px-4 py-1.5 rounded"
-          >
-            {generating ? 'Analysing…' : 'Generate Signal'}
-          </button>
+    <>
+      {/* Mobile layout */}
+      <div className="flex flex-col h-full md:hidden">
+        <Watchlist {...watchlistProps} variant="horizontal" />
+        <div className="flex-1 overflow-auto">
+          <KpiCards portfolioValueGbp={10000} signalCount={0} newsAlertCount={0} />
+          <PriceChart data={chartData} ticker={selected} />
+          <SignalPanel selected={selected} signal={signal} generating={generating} onGenerate={generateSignal} />
         </div>
       </div>
+
+      {/* Desktop layout */}
+      <div className="hidden md:flex h-[calc(100vh-52px)]">
+        <Watchlist {...watchlistProps} variant="vertical" />
+        <div className="flex-1 flex flex-col overflow-auto">
+          <KpiCards portfolioValueGbp={10000} signalCount={0} newsAlertCount={0} />
+          <PriceChart data={chartData} ticker={selected} />
+          <SignalPanel selected={selected} signal={signal} generating={generating} onGenerate={generateSignal} />
+        </div>
+      </div>
+    </>
+  )
+}
+
+function SignalPanel({ selected, signal, generating, onGenerate }: {
+  selected: string
+  signal: SignalData | null
+  generating: boolean
+  onGenerate: () => void
+}) {
+  return (
+    <div className="mx-4 mb-4 p-4 bg-gray-900 rounded-2xl border border-gray-800">
+      <div className="flex items-center justify-between mb-3">
+        <span className="font-semibold text-sm text-white">{selected} — Claude Analysis</span>
+        {signal && <DirectionBadge direction={signal.direction} />}
+      </div>
+
+      {signal ? (
+        <>
+          <div className="grid grid-cols-3 gap-3 mb-3">
+            {[
+              { label: 'Entry',  value: signal.entry_price_gbp  ? `£${signal.entry_price_gbp.toFixed(2)}`  : '—', colour: 'text-white'      },
+              { label: 'Stop',   value: signal.stop_loss_gbp    ? `£${signal.stop_loss_gbp.toFixed(2)}`    : '—', colour: 'text-red-400'    },
+              { label: 'Target', value: signal.target_gbp       ? `£${signal.target_gbp.toFixed(2)}`       : '—', colour: 'text-green-400'  },
+            ].map(({ label, value, colour }) => (
+              <div key={label} className="bg-gray-800 rounded-xl p-3">
+                <span className="text-[10px] text-gray-500 uppercase tracking-wider block mb-1">{label}</span>
+                <span className={`font-bold text-sm ${colour}`}>{value}</span>
+              </div>
+            ))}
+          </div>
+          <p className="text-xs text-gray-500 mb-2">
+            {signal.strategy_triggered && `${signal.strategy_triggered} · `}
+            Conf. {signal.confidence_pct ?? '—'}%
+            {signal.risk_reward_ratio && ` · R:R ${signal.risk_reward_ratio.toFixed(1)}`}
+          </p>
+          {signal.reasoning && (
+            <p className="text-xs text-gray-400 leading-relaxed line-clamp-3 mb-3">{signal.reasoning}</p>
+          )}
+        </>
+      ) : (
+        <p className="text-gray-600 text-xs mb-3">No signal for today. Click &quot;Generate Signal&quot; to analyse.</p>
+      )}
+
+      <button
+        onClick={onGenerate}
+        disabled={generating}
+        className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors"
+      >
+        {generating ? 'Analysing…' : 'Generate Signal'}
+      </button>
     </div>
   )
 }
